@@ -35,6 +35,9 @@ public class UserRepository {
     @ConfigProperty(name = "auth.db.url")
     String databaseUrl;
 
+    @ConfigProperty(name = "auth.bootstrap.trainer.enabled", defaultValue = "true")
+    boolean trainerBootstrapEnabled;
+
     @PostConstruct
     void initialize() {
         try {
@@ -56,6 +59,10 @@ public class UserRepository {
     }
 
     public Optional<UserRecord> findByUsername(String username) {
+        if (isDisabledTrainerBootstrapAccount(username)) {
+            return Optional.empty();
+        }
+
         String sql = "SELECT id, username, password_hash, display_name, role "
                 + "FROM legacy_users WHERE username = ?";
         try (Connection connection = DriverManager.getConnection(databaseUrl);
@@ -140,8 +147,14 @@ public class UserRepository {
     private void seedUsers(Connection connection) throws SQLException {
         seedUser(connection, DEFAULT_STUDENT_USERNAME, DEFAULT_STUDENT_PASSWORD,
                 DEFAULT_STUDENT_DISPLAY_NAME, STUDENT_ROLE);
-        seedUser(connection, DEFAULT_TRAINER_USERNAME, DEFAULT_TRAINER_PASSWORD,
-                DEFAULT_TRAINER_DISPLAY_NAME, TRAINER_ROLE);
+        if (trainerBootstrapEnabled) {
+            seedUser(connection, DEFAULT_TRAINER_USERNAME, DEFAULT_TRAINER_PASSWORD,
+                    DEFAULT_TRAINER_DISPLAY_NAME, TRAINER_ROLE);
+        }
+    }
+
+    private boolean isDisabledTrainerBootstrapAccount(String username) {
+        return !trainerBootstrapEnabled && DEFAULT_TRAINER_USERNAME.equals(username);
     }
 
     private void seedUser(Connection connection, String username, String password, String displayName, String role)
