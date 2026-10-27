@@ -45,5 +45,5 @@ No se encontró un contrato previo en `docs/ENDPOINTS.md` ni una aprobación hum
 - El formato interno de `token` cambió del Base64 anterior a JWT firmado. No se inspeccionaron consumidores fuera de `auth/`; confirmar que no dependan del formato anterior.
 - El origen de producción permitido debe confirmarse y configurarse mediante `AUTH_CORS_ORIGINS`.
 - El perfil de producción requiere un `AUTH_TOKEN_SECRET` seguro, aleatorio y de al menos 32 bytes; no se documenta aquí ningún valor secreto.
-- H-AUTH-08 está pendiente: el arranque siembra credenciales fijas de `trainer` también en producción. Consultar `HALLAZGOS.md`.
+- H-AUTH-08: el perfil `%prod` no siembra la cuenta bootstrap TRAINER y el repositorio bloquea su lookup en producción, incluso si ya existe un registro; no lo elimina de la base. La cuenta bootstrap STUDENT sigue sembrándose por decisión de alcance y queda como candidato H-AUTH-09 en `HALLAZGOS.md`.
 - El cuerpo de error `500` ya no devuelve el campo `exception`; el estado se conserva, pero ese detalle de respuesta cambió.
