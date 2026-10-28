@@ -34,6 +34,9 @@ class AuthResourceTest {
     AuthService authService;
 
     @Inject
+    UserRepository userRepository;
+
+    @Inject
     PasswordHasher passwordHasher;
 
     @Inject
@@ -70,6 +73,24 @@ class AuthResourceTest {
                 .then()
                 .statusCode(401)
                 .body("message", is("Invalid user student or password"));
+    }
+
+    @Test
+    void rejectsTrainerLoginWhenBootstrapIsDisabled() {
+        boolean previousSetting = userRepository.trainerBootstrapEnabled;
+        userRepository.trainerBootstrapEnabled = false;
+        try {
+            given()
+                    .contentType("application/json")
+                    .body("{\"username\":\"trainer\",\"password\":\"test-only-invalid-password\"}")
+                    .when().post("/auth/login")
+                    .then()
+                    .statusCode(401)
+                    .body("message", is("Invalid user trainer or password"))
+                    .body("token", nullValue());
+        } finally {
+            userRepository.trainerBootstrapEnabled = previousSetting;
+        }
     }
 
     @Test
@@ -213,10 +234,29 @@ class AuthResourceTest {
         assertTrue(authService.authenticate("student", "Workshop123!").isPresent());
     }
 
+    @Test
+    void initializationSeedsTrainerWhenEnabled() throws Exception {
+        java.nio.file.Path databaseFile = java.nio.file.Files.createTempFile(
+                java.nio.file.Path.of("target"), "auth-bootstrap-before-", ".db");
+        try {
+            UserRepository repository = new UserRepository();
+            repository.passwordHasher = passwordHasher;
+            repository.databaseUrl = "jdbc:sqlite:" + databaseFile.toAbsolutePath();
+            repository.trainerBootstrapEnabled = true;
+
+            repository.initialize();
+
+            assertTrue(repository.findByUsername("trainer").isPresent());
+        } finally {
+            java.nio.file.Files.deleteIfExists(databaseFile);
+        }
+    }
+
     private void initializeTestDatabase() {
         UserRepository repository = new UserRepository();
         repository.passwordHasher = passwordHasher;
         repository.databaseUrl = TEST_DATABASE_URL;
+        repository.trainerBootstrapEnabled = true;
         repository.initialize();
     }
 

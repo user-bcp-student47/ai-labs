@@ -95,3 +95,16 @@ Se incluyen todos los hallazgos `Pendiente` existentes para auth en `HALLAZGOS.m
 - La respuesta de error 500 conserva el estado, pero ya no conserva el campo `exception`; es el cambio intencional de seguridad aprobado para H-AUTH-05.
 - Desviaciones registradas: se eligió JCA `Mac` y Jackson existente en lugar de añadir SmallRye JWT; se añadió configuración de base de datos del perfil `%test` para ejecutar migraciones en `target/` sin modificar la base original. No se cambió Quarkus 3.27.4 por falta de evidencia directa que justificara modificar el BOM.
 - `auth/pom.xml` conserva la modificación previa local del plugin Quarkus; el cambio de dependencia se limitó a Commons Text.
+
+### H-AUTH-08 — Deshabilitar el bootstrap TRAINER en producción
+
+- **Aprobación y alcance:** H-AUTH-08 y su HU-01 se aprobaron para implementación. Decisión confirmada en conversación el 2026-10-27: deshabilitar solo la cuenta bootstrap TRAINER en producción; conservar la siembra STUDENT en todos los perfiles; no borrar registros TRAINER existentes, pero impedir su autenticación en producción.
+- **Cambio:** `auth.bootstrap.trainer.enabled` queda activo por defecto y deshabilitado en `%prod`. El repositorio omite la inserción TRAINER y devuelve usuario no encontrado para ese nombre de cuenta cuando la opción está deshabilitada.
+- **Archivos:** `auth/src/main/java/com/bcp/workshop/auth/UserRepository.java`, `auth/src/main/resources/application.properties`, pruebas en `auth/src/test/java/com/bcp/workshop/auth/AuthResourceTest.java` y `auth/src/test/java/com/bcp/workshop/auth/UserRepositoryTest.java`.
+- **Contrato protegido:** `POST /auth/login` conserva la forma de solicitud y sus respuestas observadas; una cuenta no disponible continúa respondiendo 401 y no obtiene token. Ver `docs/ENDPOINTS.md`.
+- **Riesgo residual fuera de alcance:** la cuenta bootstrap STUDENT continúa sembrándose con datos fijos en producción por decisión explícita. Se registró como candidato separado H-AUTH-09 en `HALLAZGOS.md`; no se implementó.
+- **Pruebas previas al cambio:** desde `auth/`, `mvn verify`: PASS, 20 pruebas; `mvn "-Dtest=AuthResourceTest#characterizationFreshDatabaseSeedsTrainerAccount" test`: PASS, 1 prueba; confirmó que antes el bootstrap TRAINER se sembraba en una base nueva con habilitación activa.
+- **Pruebas después del cambio:** desde `auth/`, `mvn "-Dtest=UserRepositoryTest,AuthResourceTest" test`: PASS, 18 pruebas; cubre la configuración `%prod`, la omisión de la siembra, el bloqueo de un registro preexistente y el HTTP 401 sin token. `mvn verify`: PASS, 25 pruebas, 0 fallos y 0 errores.
+- **Cobertura:** JaCoCo 0.8.12; los 5 renglones ejecutables añadidos/modificados en `UserRepository` están cubiertos (5/5, 100%) y las ramas de las condiciones nuevas están cubiertas (8/8). El reporte está en `auth/target/site/jacoco/index.html`.
+- **Intento de prueba descartado:** un `@QuarkusTest` con cambio del perfil a `prod` pasó aislado, pero causó una falla de classloader/driver SQLite al ejecutar después las pruebas del perfil test. Se retiró ese test y se verificó la configuración `%prod` con SmallRye Config y el repositorio en pruebas unitarias; la suite completa final pasó.
+- **Validaciones remotas:** CodeQL y Dependency Review no se ejecutaron localmente.
